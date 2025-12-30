@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Windows.Forms;
+using static AutoBackupZipOneDrive.Core.OneDriveSyncHelper;
 namespace AutoBackupZipOneDrive.Core
 {
     public class BackupWorker
@@ -384,27 +385,29 @@ namespace AutoBackupZipOneDrive.Core
                                     // ===== 上传阶段：完全由同步状态决定，超时2小时后判定失败 =====
                                     int retryCount = 0;
                                     const int MAX_RETRIES = 12; // 12 × 10 分钟 = 2 小时
-                                    bool uploadFailed = false;
+                                    int uploadFailed = 2; //0=文件不存在，1=超时
                                     while (true)
                                     {
-                                        bool uploaded = OneDriveSyncHelper.WaitUploadFinished(
+                                        var result  = OneDriveSyncHelper.WaitUploadFinished(
                                             target,
-                                            600, // 每次最多等 10 分钟
+                                            600, // 每次最多等10分钟，600秒
                                             msg => AddEvent(msg)
                                         );
 
-                                        if (uploaded)
+                                        if (result== OneDriveUploadResult.Success)
                                         {
                                             break; // ✅ 上传成功，正常往下走
                                         }
-
+                                        if (result == OneDriveUploadResult.FileNotExists)
+                                        {
+                                            uploadFailed = 0;// ❌ 文件不存在
+                                            break; // ❌ 致命错误，不能重试
+                                        }
                                         retryCount++;
 
                                         if (retryCount >= MAX_RETRIES)
                                         {
-                                            uploadFailed = true;
-                                            oneDriveResult = "❌ OneDrive 上传超时（已等待 2 小时），本轮上传任务终止。";
-                                            AddEvent(oneDriveResult);
+                                            uploadFailed = 1;// ❌ 上传超时
                                             break; // ⚠️ 只跳出上传等待循环
                                         }
 
@@ -412,9 +415,13 @@ namespace AutoBackupZipOneDrive.Core
                                     }
 
                                     // ===== 上传完成后，进入释放阶段 =====
-                                    if (uploadFailed)
+                                    if (uploadFailed==1) // 上传超时
                                     {
                                         oneDriveResult = "❌ OneDrive 上传超时（已等待 2 小时），本轮处理已安全终止。";
+                                        AddEvent(oneDriveResult);
+                                    } else if (uploadFailed==0) // 文件不存在
+                                    {
+                                        oneDriveResult = "❌ 文件不存在，OneDrive 上传被中断。";
                                         AddEvent(oneDriveResult);
                                     }
                                     else

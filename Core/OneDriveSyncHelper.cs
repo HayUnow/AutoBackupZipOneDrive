@@ -8,7 +8,7 @@ namespace AutoBackupZipOneDrive.Core
     public static class OneDriveSyncHelper
     {
         // ====================== ① 等待 OneDrive 上传完成 ======================
-        public static bool WaitUploadFinished(
+        public static OneDriveUploadResult WaitUploadFinished(
             string file,
             int timeoutSeconds,
             Action<string> status)
@@ -18,8 +18,10 @@ namespace AutoBackupZipOneDrive.Core
             while ((DateTime.Now - start).TotalSeconds < timeoutSeconds)
             {
                 if (!File.Exists(file))
-                    return false;
-
+                {
+                    status?.Invoke("❌ 文件不存在，本次上传已终止。");
+                    return OneDriveUploadResult.FileNotExists;
+                }
                 Thread.Sleep(60000);//每60秒检查一次
 
                 string availability = GetOneDriveAvailabilityText(file);
@@ -41,20 +43,20 @@ namespace AutoBackupZipOneDrive.Core
                 if (availability.Contains("在此设备上可用"))
                 {
                     status?.Invoke("☁ OneDrive 上传完成（在此设备上可用）");
-                    return true;
+                    return OneDriveUploadResult.Success;
                 }
 
                 if (availability.Contains("联机"))
                 {
                     status?.Invoke("☁ OneDrive 已上传完成并释放本地文件成功（仅联机）。");
-                    return true;
+                    return OneDriveUploadResult.Success;
                 }
 
                 status?.Invoke("⏳ 等待 OneDrive 上传状态确认…");
             }
 
             status?.Invoke("⏳ OneDrive 上传时间较长，请耐心等待上传完成…");
-            return false;
+            return OneDriveUploadResult.Timeout;
         }
 
         // ====================== ② 等待文件进入“仅云端” ======================
@@ -172,6 +174,13 @@ namespace AutoBackupZipOneDrive.Core
             {
                 return null;
             }
+        }
+        // ====================== 上传结果枚举 ======================
+        public enum OneDriveUploadResult
+        {
+            Success,        // 上传完成
+            FileNotExists,  // 文件不存在
+            Timeout         // 等待超时
         }
     }
 }
