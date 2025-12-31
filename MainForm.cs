@@ -5,6 +5,7 @@ using System.Drawing;
 using System.IO;
 using System.Threading;
 using System.Windows.Forms;
+using AutoBackupZipOneDrive.Notify;
 
 namespace AutoBackupZipOneDrive
 {
@@ -16,7 +17,7 @@ namespace AutoBackupZipOneDrive
         private Thread _thread;
         private BackupWorker _worker;
         private readonly string _webhookFile =
-            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wx_webhook.txt");//微信webhook
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "webhook.txt");//通用webhook存储文件
         public MainForm()
         {
             InitializeComponent();
@@ -36,6 +37,7 @@ namespace AutoBackupZipOneDrive
                     MessageBoxIcon.Information
                 );
             }
+           
         }
 
         // ================= 浏览 OneDrive =================
@@ -122,8 +124,83 @@ namespace AutoBackupZipOneDrive
                 ZipTempKeepDays = (int)numZipKeep.Value,
                 Password = txtPwd.Text
             };
-            // 初始化企业微信通知器（即使不使用也初始化以防报错）
-            var notifier = new WeComWebhookNotifier(txtWeComWebhook.Text);
+            INotifyChannel notifier = null;
+            string hook = txtWeComWebhook.Text.Trim();
+
+            if (string.IsNullOrEmpty(hook))
+            {
+                notype.Text = "❌ 未配置通知";
+            }
+            else if (hook.Contains("weixin"))
+            {
+                // 企业微信
+                var wecom = new WeComWebhookNotifier(hook);
+                notifier = new WeComNotifyChannel(wecom);
+                notype.Text = "✔ 企业微信群";
+            }
+            else if (hook.Contains("oapi.dingtalk.com"))
+            {
+                // 钉钉
+                notifier = new DingTalkNotifyChannel(hook);
+                notype.Text = "✔ 钉钉聊天群";
+            }
+            else if (hook.Contains("api.telegram.org"))
+            {
+                // Telegram
+                // 要求格式：
+                // https://api.telegram.org/bot<TOKEN>/sendMessage?chat_id=<CHAT_ID>
+
+                try
+                {
+                    var uri = new Uri(hook);
+
+                    // 解析 token：/bot<TOKEN>/sendMessage
+                    // AbsolutePath = "/bot123456:ABC/sendMessage"
+                    var path = uri.AbsolutePath.Trim('/').Split('/');
+                    if (path.Length >= 2 && path[0].StartsWith("bot"))
+                    {
+                        string token = path[0].Substring(3);
+
+                        // 解析 chat_id（最简单可靠方式）
+                        string query = uri.Query.TrimStart('?'); // chat_id=123
+                        string chatId = null;
+
+                        foreach (var part in query.Split('&'))
+                        {
+                            var kv = part.Split('=');
+                            if (kv.Length == 2 && kv[0] == "chat_id")
+                            {
+                                chatId = kv[1];
+                                break;
+                            }
+                        }
+
+                        if (!string.IsNullOrEmpty(token) && !string.IsNullOrEmpty(chatId))
+                        {
+                            notifier = new TelegramNotifyChannel(token, chatId);
+                            notype.Text = "✔ Telegram";
+                        }
+                        else
+                        {
+                            notype.Text = "❌ Telegram 参数不完整";
+                        }
+                    }
+                    else
+                    {
+                        notype.Text = "❌ Telegram 地址格式错误";
+                    }
+                }
+                catch
+                {
+                    notype.Text = "❌ Telegram 地址格式错误";
+                }
+            }
+
+            else
+            {
+                notype.Text = "❌ 不支持的通知类型";
+            }
+
             // 检查监控目录是否存在
             if (!Directory.Exists(cfg.MonitorPath))
             {
@@ -202,7 +279,7 @@ namespace AutoBackupZipOneDrive
         private void MainForm_Load(object sender, EventArgs e)
         {
             InitTray();
-            LoadWebhook();//加载微信webhook
+            LoadWebhook();//加载webhook
             dtStart.Value = DateTime.Now;//默认当前时间
         }
         private void InitTray()
@@ -225,7 +302,7 @@ namespace AutoBackupZipOneDrive
                     "程序名称：AutoBackupZipOneDrive\n\n" +
                     "版本：v1.0.0\n" +
                     "作者：Fly Cat & ChatGpt & Gemini\n" +
-                    "编译：2025-12-25\n\n" +
+                    "编译：2025-12-30\n\n" +
                     "说明：\n" +
                     "用于自动监控目录变化，\n" +
                     "打包压缩后同步至 OneDrive。",

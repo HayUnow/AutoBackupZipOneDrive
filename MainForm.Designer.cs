@@ -73,6 +73,8 @@ namespace AutoBackupZipOneDrive
             this.txtWeComWebhook = new System.Windows.Forms.TextBox();
             this.dtEnd = new System.Windows.Forms.DateTimePicker();
             this.label2 = new System.Windows.Forms.Label();
+            this.label3 = new System.Windows.Forms.Label();
+            this.notype = new System.Windows.Forms.TextBox();
             ((System.ComponentModel.ISupportInitialize)(this.numZipKeep)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numScan)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numStable)).BeginInit();
@@ -98,14 +100,14 @@ namespace AutoBackupZipOneDrive
             // 
             this.btnBrowse.Location = new System.Drawing.Point(409, 26);
             this.btnBrowse.Name = "btnBrowse";
-            this.btnBrowse.Size = new System.Drawing.Size(80, 28);
+            this.btnBrowse.Size = new System.Drawing.Size(139, 28);
             this.btnBrowse.TabIndex = 2;
             this.btnBrowse.Text = "浏览";
             this.btnBrowse.Click += new System.EventHandler(this.btnBrowse_Click);
             // 
             // lblOneDrive
             // 
-            this.lblOneDrive.Location = new System.Drawing.Point(28, 59);
+            this.lblOneDrive.Location = new System.Drawing.Point(28, 55);
             this.lblOneDrive.Name = "lblOneDrive";
             this.lblOneDrive.Size = new System.Drawing.Size(350, 16);
             this.lblOneDrive.TabIndex = 3;
@@ -113,16 +115,16 @@ namespace AutoBackupZipOneDrive
             // 
             // txtOneDrive
             // 
-            this.txtOneDrive.Location = new System.Drawing.Point(28, 79);
+            this.txtOneDrive.Location = new System.Drawing.Point(28, 74);
             this.txtOneDrive.Name = "txtOneDrive";
             this.txtOneDrive.Size = new System.Drawing.Size(360, 21);
             this.txtOneDrive.TabIndex = 4;
             // 
             // btnBrowseOD
             // 
-            this.btnBrowseOD.Location = new System.Drawing.Point(409, 77);
+            this.btnBrowseOD.Location = new System.Drawing.Point(409, 69);
             this.btnBrowseOD.Name = "btnBrowseOD";
-            this.btnBrowseOD.Size = new System.Drawing.Size(80, 28);
+            this.btnBrowseOD.Size = new System.Drawing.Size(139, 28);
             this.btnBrowseOD.TabIndex = 5;
             this.btnBrowseOD.Text = "浏览";
             this.btnBrowseOD.Click += new System.EventHandler(this.btnBrowseOD_Click);
@@ -192,7 +194,7 @@ namespace AutoBackupZipOneDrive
             this.lblStable.Name = "lblStable";
             this.lblStable.Size = new System.Drawing.Size(210, 16);
             this.lblStable.TabIndex = 12;
-            this.lblStable.Text = "新文件稳定时间（秒）";
+            this.lblStable.Text = "新增文件稳定时间（秒）";
             // 
             // numStable
             // 
@@ -201,7 +203,7 @@ namespace AutoBackupZipOneDrive
             this.numStable.Size = new System.Drawing.Size(168, 21);
             this.numStable.TabIndex = 13;
             this.numStable.Value = new decimal(new int[] {
-            30,
+            60,
             0,
             0,
             0});
@@ -221,7 +223,7 @@ namespace AutoBackupZipOneDrive
             this.numWindow.Size = new System.Drawing.Size(168, 21);
             this.numWindow.TabIndex = 15;
             this.numWindow.Value = new decimal(new int[] {
-            3,
+            5,
             0,
             0,
             0});
@@ -295,9 +297,9 @@ namespace AutoBackupZipOneDrive
             // 
             this.label1.Location = new System.Drawing.Point(218, 106);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(210, 16);
+            this.label1.Size = new System.Drawing.Size(170, 16);
             this.label1.TabIndex = 23;
-            this.label1.Text = "企业微信 Webhook（可选）：";
+            this.label1.Text = "Webhook(微信、钉钉、TG)";
             // 
             // txtWeComWebhook
             // 
@@ -327,9 +329,30 @@ namespace AutoBackupZipOneDrive
             this.label2.TabIndex = 26;
             this.label2.Text = "监测结束日期*时间表示每日时段";
             // 
+            // label3
+            // 
+            this.label3.Location = new System.Drawing.Point(407, 108);
+            this.label3.Name = "label3";
+            this.label3.Size = new System.Drawing.Size(143, 16);
+            this.label3.TabIndex = 28;
+            this.label3.Text = "通知类型（自动识别）";
+            // 
+            // notype
+            // 
+            this.notype.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.notype.ForeColor = System.Drawing.SystemColors.WindowText;
+            this.notype.Location = new System.Drawing.Point(409, 126);
+            this.notype.Name = "notype";
+            this.notype.ReadOnly = true;
+            this.notype.Size = new System.Drawing.Size(139, 23);
+            this.notype.TabIndex = 29;
+            this.notype.TextAlign = System.Windows.Forms.HorizontalAlignment.Center;
+            // 
             // MainForm
             // 
             this.ClientSize = new System.Drawing.Size(574, 761);
+            this.Controls.Add(this.notype);
+            this.Controls.Add(this.label3);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.dtEnd);
             this.Controls.Add(this.dtStart);
@@ -377,5 +400,7 @@ namespace AutoBackupZipOneDrive
         private TextBox txtWeComWebhook;
         private DateTimePicker dtEnd;
         private Label label2;
+        private Label label3;
+        private TextBox notype;
     }
 }
