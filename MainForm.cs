@@ -302,7 +302,7 @@ namespace AutoBackupZipOneDrive
                     "程序名称：AutoBackupZipOneDrive\n\n" +
                     "版本：v1.0.0\n" +
                     "作者：Fly Cat & ChatGpt & Gemini\n" +
-                    "编译：2025-12-30\n\n" +
+                    "编译：2025-12-31\n\n" +
                     "说明：\n" +
                     "用于自动监控目录变化，\n" +
                     "打包压缩后同步至 OneDrive。",
