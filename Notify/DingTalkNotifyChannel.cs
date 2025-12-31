@@ -1,6 +1,6 @@
 ﻿using System.Net.Http;
 using System.Text;
-using Newtonsoft.Json;
+using System.Web.Script.Serialization;
 
 namespace AutoBackupZipOneDrive.Notify
 {
@@ -8,6 +8,7 @@ namespace AutoBackupZipOneDrive.Notify
     {
         private static readonly HttpClient _httpClient = new HttpClient();
         private readonly string _webhook;
+        private static readonly JavaScriptSerializer _json = new JavaScriptSerializer();
 
         public DingTalkNotifyChannel(string webhook)
         {
@@ -25,20 +26,17 @@ namespace AutoBackupZipOneDrive.Notify
                 }
             };
 
-            string json = JsonConvert.SerializeObject(payload);
+            string json = _json.Serialize(payload);
 
-            var content = new StringContent(
-                json,
-                Encoding.UTF8,
-                "application/json"
-            );
+            using (var content = new StringContent(json, Encoding.UTF8, "application/json"))
+            {
+                var response = _httpClient
+                    .PostAsync(_webhook, content)
+                    .GetAwaiter()
+                    .GetResult();
 
-            var response = _httpClient
-                .PostAsync(_webhook, content)
-                .GetAwaiter()
-                .GetResult();
-
-            response.EnsureSuccessStatusCode();
+                response.EnsureSuccessStatusCode();
+            }
         }
     }
 }
