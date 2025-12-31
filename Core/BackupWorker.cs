@@ -6,6 +6,8 @@ using System.Linq;
 using System.Threading;
 using System.Windows.Forms;
 using static AutoBackupZipOneDrive.Core.OneDriveSyncHelper;
+using AutoBackupZipOneDrive.Notify;
+
 namespace AutoBackupZipOneDrive.Core
 {
     public class BackupWorker
@@ -55,15 +57,15 @@ namespace AutoBackupZipOneDrive.Core
 
         private readonly Dictionary<string, DateTime> _stageSince =
             new Dictionary<string, DateTime>();
-        private readonly WeComWebhookNotifier _notifier;// 企业微信群通知器
+        private readonly INotifyChannel _notifier;// Webhook通知通道
         public BackupWorker(
             AppConfig cfg,
-            WeComWebhookNotifier notifier,// 企业微信群通知器
+           INotifyChannel notifier,// Webhook通知通道
             Action<string> detailLeft,
             Action<string> detailRight)
         {
             _cfg = cfg;
-            _notifier = notifier;// 企业微信群通知器
+            _notifier = notifier;// Webhook通知通道
             _detailLeft = detailLeft;
             _detailRight = detailRight;
             _checkpoint = Checkpoint.Load(_cpFile, cfg.StartDate);
@@ -171,8 +173,8 @@ namespace AutoBackupZipOneDrive.Core
                         _processStartTime = DateTime.Now;
                         _windowStart = now;   // ← 发现文件开始计算周期时间
                         _hasWindow = true;
-                        // 企业微信通知
-                        _ = _notifier.SendTextAsync(
+                        // 企业微信通知兼容 Kuma 状态变更通知
+                        _notifier.Notify(
                             DateTime.Now.ToString("HH:mm:ss") + "\n" +
                             "【开始】" + "\n" +
                             "OneDrive：" + _oneDriveStatusText + "\n" +
@@ -344,8 +346,8 @@ namespace AutoBackupZipOneDrive.Core
                                 _lastPackedFiles.Select((f, i) => $"{i + 1}. {f}")
                             );
 
-                            // 发送企业微信【打包】通知
-                            _ = _notifier.SendTextAsync(
+                            // 发送企业微信【打包】通知兼容 Kuma 状态变更通知
+                            _notifier.Notify(
                                 $"{DateTime.Now:HH:mm:ss}\n" +
                                 "【打包】\n" +
                                 $"本次共 {_lastPackedFiles.Count} 个文件打包成功。\n" +
@@ -483,7 +485,7 @@ namespace AutoBackupZipOneDrive.Core
                                 costTime.Minutes + "分" +
                                 costTime.Seconds + "秒";
 
-                            _ = _notifier.SendTextAsync(
+                            _notifier.Notify(
                                 DateTime.Now.ToString("HH:mm:ss") + "\n" +
                                 "【结束】\n" +
                                 "OneDrive：" + oneDriveResult + "\n" +
