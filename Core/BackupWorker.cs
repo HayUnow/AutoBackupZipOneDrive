@@ -1,12 +1,13 @@
 using AutoBackupZipOneDrive.Models;
+using AutoBackupZipOneDrive.Notify;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Threading;
 using System.Windows.Forms;
 using static AutoBackupZipOneDrive.Core.OneDriveSyncHelper;
-using AutoBackupZipOneDrive.Notify;
 
 namespace AutoBackupZipOneDrive.Core
 {
@@ -65,7 +66,7 @@ namespace AutoBackupZipOneDrive.Core
             Action<string> detailRight)
         {
             _cfg = cfg;
-            _notifier = notifier;// Webhook通知通道
+            _notifier = notifier ?? new NullNotifyChannel();// Webhook通知通道,为空则使用空实现，不发生任何通知
             _detailLeft = detailLeft;
             _detailRight = detailRight;
             _checkpoint = Checkpoint.Load(_cpFile, cfg.StartDate);
@@ -200,8 +201,18 @@ namespace AutoBackupZipOneDrive.Core
                             _stages[fi.FullName] = ConfirmStage.Writing;
                             _stageSince[fi.FullName] = now;
 
-                            AddEvent("发现新文件：" + Path.GetFileName(fi.FullName));
-                            AddEvent("文件写入中：" + Path.GetFileName(fi.FullName));
+                            AddEvent(
+                                "发现新文件：" +
+                                Path.GetFileName(fi.FullName) +
+                                "（" + FormatSize(fi.Length) + "）"
+                            );
+
+                            AddEvent(
+                                "文件写入中：" +
+                                Path.GetFileName(fi.FullName) +
+                                "（" + FormatSize(fi.Length) + "）"
+                            );
+
                             continue;
                         }
 
@@ -217,7 +228,11 @@ namespace AutoBackupZipOneDrive.Core
                             _stages[fc.Path] = ConfirmStage.Writing;
                             _stageSince[fc.Path] = now;
 
-                            AddEvent("文件写入中：" + Path.GetFileName(fc.Path));
+                            AddEvent(
+                              "文件写入中：" +
+                               Path.GetFileName(fi.FullName) +
+                               "（" + FormatSize(fi.Length) + "）"
+                               );
                             fc.StateText = "文件写入中";
                             continue;
                         }
@@ -226,7 +241,11 @@ namespace AutoBackupZipOneDrive.Core
                         if (_stages.TryGetValue(fc.Path, out currentStage) &&
                             currentStage == ConfirmStage.Writing)
                         {
-                            AddEvent("文件写入中：" + Path.GetFileName(fc.Path));
+                            AddEvent(
+                                "文件写入中：" +
+                                Path.GetFileName(fi.FullName) +
+                                "（" + FormatSize(fi.Length) + "）"
+                            );
                         }
 
 
@@ -237,36 +256,38 @@ namespace AutoBackupZipOneDrive.Core
 
                         if (elapsed >= _cfg.StableSeconds)
                         {
+                            string name = Path.GetFileName(fc.Path);
+                            string size = FormatSize(fc.Size);
                             switch (stage)
                             {
                                 case ConfirmStage.Writing:
                                     stage = ConfirmStage.StableRound1;
-                                    AddEvent("稳定确认（1/2）：" + Path.GetFileName(fc.Path));
-                                    fc.StateText = "文件稳定，等待确认";
+                                    AddEvent($"稳定确认（1/2）：{name}（{size}）");
+                                    fc.StateText = $"文件稳定，等待确认";
                                     break;
 
                                 case ConfirmStage.StableRound1:
                                     stage = ConfirmStage.StableRound2;
-                                    AddEvent("稳定确认（2/2）：" + Path.GetFileName(fc.Path));
-                                    fc.StateText = "文件稳定，等待确认";
+                                    AddEvent($"稳定确认（2/2）：{name}（{size}）");
+                                    fc.StateText = $"文件稳定，等待确认";
                                     break;
 
                                 case ConfirmStage.StableRound2:
                                     stage = ConfirmStage.PackConfirmRound1;
-                                    AddEvent("打包前确认（1/2）：" + Path.GetFileName(fc.Path));
-                                    fc.StateText = "文件稳定，等待确认";
+                                    AddEvent($"打包前确认（1/2）：{name}（{size}）");
+                                    fc.StateText = $"文件状态已经稳定-等待打包";
                                     break;
 
                                 case ConfirmStage.PackConfirmRound1:
                                     stage = ConfirmStage.PackConfirmRound2;
-                                    AddEvent("打包前确认（2/2）：" + Path.GetFileName(fc.Path));
-                                    fc.StateText = "文件状态已经稳定-等待打包";
+                                    AddEvent($"打包前确认（2/2）：{name}（{size}）");
+                                    fc.StateText = $"文件状态已经稳定-等待打包";
                                     break;
 
                                 case ConfirmStage.PackConfirmRound2:
                                     stage = ConfirmStage.Ready;
                                     fc.IsStable = true;
-                                    fc.StateText = "文件状态已经稳定-等待打包";
+                                    fc.StateText = $"文件状态已经稳定-等待打包";
                                     break;
                             }
 
@@ -290,7 +311,7 @@ namespace AutoBackupZipOneDrive.Core
                         {
                             lines.Add(i++ + ". " +
                                 Path.GetFileName(f.Path) +
-                                "（" + f.StateText + "）");
+                               "（" + f.StateText + "，" + FormatSize(f.Size) + "）");
                         }
 
                         _resultText =
@@ -343,17 +364,23 @@ namespace AutoBackupZipOneDrive.Core
                             // 构建按行显示的文件列表
                             string files = string.Join(
                                 Environment.NewLine,
-                                _lastPackedFiles.Select((f, i) => $"{i + 1}. {f}")
+                                _files.Values.Select((f, i) =>
+                                    $"{i + 1}. {Path.GetFileName(f.Path)}（{FormatSize(f.Size)}）"
+                                )
                             );
 
                             // 发送企业微信【打包】通知兼容 Kuma 状态变更通知
+                            long zipSize = new FileInfo(out7z).Length;
+                            long totalSize = _files.Values.Sum(f => f.Size);
                             _notifier.Notify(
                                 $"{DateTime.Now:HH:mm:ss}\n" +
                                 "【打包】\n" +
                                 $"本次共 {_lastPackedFiles.Count} 个文件打包成功。\n" +
+                                $"源文件总大小：{FormatSize(totalSize)}\n" +
                                 "文件列表：\n" +
                                 files + "\n" +
-                                $"压缩包：{Path.GetFileName(out7z)}"
+                                $"压缩包：{Path.GetFileName(out7z)}\n" +
+                                $"压缩包大小：{FormatSize(zipSize)}" 
                             );
                             // ===== 左侧结果区：本次打包成功结果（必须保留）=====
                             _resultText +=
@@ -485,20 +512,28 @@ namespace AutoBackupZipOneDrive.Core
                                 costTime.Minutes + "分" +
                                 costTime.Seconds + "秒";
 
-                            _notifier.Notify(
-                                DateTime.Now.ToString("HH:mm:ss") + "\n" +
-                                "【结束】\n" +
-                                "OneDrive：" + oneDriveResult + "\n" +
-                                "本次自动化处理已结束。\n" +
-                                "共计耗时：" + costText
-                            );
-
-                            // 清除状态，准备下一轮
+                            // ✅ 先清除状态，保证本轮一定结束
                             _files.Clear();
                             _stages.Clear();
                             _stageSince.Clear();
                             _hasWindow = false;
-                            _processStartTime = DateTime.MinValue;// 重置处理开始时间
+                            _processStartTime = DateTime.MinValue;
+
+                            // ✅ 通知失败不允许破坏主流程
+                            try
+                            {
+                                _notifier.Notify(
+                                    DateTime.Now.ToString("HH:mm:ss") + "\n" +
+                                    "【结束】\n" +
+                                    "OneDrive：" + oneDriveResult + "\n" +
+                                    "本次自动化处理已结束。\n" +
+                                    "共计耗时：" + costText
+                                );
+                            }
+                            catch (Exception ex)
+                            {
+                                AddEvent("⚠ 通知发送失败：" + ex.Message);
+                            }
                         }
                         else
                         {
@@ -569,13 +604,19 @@ namespace AutoBackupZipOneDrive.Core
             lines.Add("本次成功打包的文件：");
 
             int i = 1;
-            foreach (string name in _lastPackedFiles)
-                lines.Add(i++ + ". " + name);
+            foreach (var f in _files.Values)
+            {
+                lines.Add(i++ + ". " +
+                    Path.GetFileName(f.Path) +
+                    "（" + FormatSize(f.Size) + "）");
+            }
 
             lines.Add("");
             lines.Add("本次成功生成的压缩包：");
             lines.Add(Path.GetFileName(zip));
-
+            // 3️⃣ 压缩包信息
+            FileInfo zipInfo = new FileInfo(zip);
+            lines.Add("压缩包大小：" + FormatSize(zipInfo.Length));
             return string.Join(Environment.NewLine, lines);
         }
         private void LogZipSuccess(string zipFile, string password)
@@ -590,6 +631,38 @@ namespace AutoBackupZipOneDrive.Core
 
             File.AppendAllText(logPath, line + Environment.NewLine);
         }//打包日志
+        // ===== 空通知通道实现（用于禁用通知时）=====
+        private class NullNotifyChannel : INotifyChannel
+        {
+            public void Notify(string text)
+            {
+                // 什么都不做
+            }
+        }
+        // ===== 格式化文件大小显示 =====
+        private static string FormatSize(long bytes)
+        {
+            const double KB = 1024.0;
+            const double MB = KB * 1024;
+            const double GB = MB * 1024;
+
+            if (bytes >= GB)
+            {
+                // G：允许小数
+                return (bytes / GB).ToString("0.##") + "G";
+            }
+
+            if (bytes >= MB)
+            {
+                // M：整数
+                return ((long)(bytes / MB)) + "M";
+            }
+
+            // K：整数（不足 1K 也显示 1K）
+            long kb = (long)(bytes / KB);
+            if (kb <= 0) kb = 1;
+            return kb + "K";
+        }
 
     }
 }
