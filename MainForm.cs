@@ -144,6 +144,12 @@ namespace AutoBackupZipOneDrive
                 notifier = new DingTalkNotifyChannel(hook);
                 notype.Text = "✔ 钉钉聊天群";
             }
+            else if (hook.Contains("n8n"))
+            {
+                // n8n 统一推送
+                notifier = new N8nNotifyChannel(hook);
+                notype.Text = "✔ n8n Webhook";
+            }
             else if (hook.Contains("api.telegram.org"))
             {
                 // Telegram
@@ -198,7 +204,7 @@ namespace AutoBackupZipOneDrive
 
             else
             {
-                notype.Text = "❌ 不支持的通知类型";
+                notype.Text = "❌ 自定义的通知类型";
             }
 
             // 检查监控目录是否存在
